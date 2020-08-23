@@ -1,5 +1,7 @@
 package com.bytes.atlas.model;
 
+import java.util.Vector;
+
 public class Line {
 
     int lineNo;
@@ -11,6 +13,12 @@ public class Line {
     int cps;
     int tw;
     int cr;
+
+    Vector<String> error = new Vector<>();
+
+    Vector<String>  warning = new Vector<>();
+
+    Vector<String>  message = new Vector<>();
 
     public String getData() {
         return data;
@@ -82,6 +90,30 @@ public class Line {
 
     public void setCr(int cr) {
         this.cr = cr;
+    }
+
+    public Vector<String> getError() {
+        return error;
+    }
+
+    public void setError(Vector<String> error) {
+        this.error = error;
+    }
+
+    public Vector<String> getWarning() {
+        return warning;
+    }
+
+    public void setWarning(Vector<String> warning) {
+        this.warning = warning;
+    }
+
+    public Vector<String> getMessage() {
+        return message;
+    }
+
+    public void setMessage(Vector<String> message) {
+        this.message = message;
     }
 
     @Override

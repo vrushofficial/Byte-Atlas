@@ -1,10 +1,10 @@
 package com.bytes.atlas.domain;
 
 import com.bytes.atlas.model.Line;
+import com.google.common.base.Splitter;
 import org.apache.log4j.Logger;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,9 +20,23 @@ public class Cnc {
     private static Pattern ifPattern = Pattern.compile("(\\w*\\s*if\\s*\\()(\\(*\\w+\\s*[><=!]*[=]*\\s*[a-zA-Z0-9]*\\)*)((\\s*\\&\\&|\\s*\\|\\||\\s*\\&|\\s*\\|)(\\s*\\(*\\w+\\s*[><=!]*[=]*\\s*[a-zA-Z0-9]*\\)*))*(\\.\\w+\\(\\\"*\\w*\\\"*\\))*(\\)\\s*\\{)");
     private static Pattern switchPattern = Pattern.compile("(switch\\s*\\()(\\w+)(\\)\\s*\\{)");
     private static Pattern elsePattern = Pattern.compile("(\\}*\\s*else\\s*\\{)");
+    private static Pattern paramDecPattern = Pattern.compile("\\b(?:\\s+\\*?\\*?\\s*)([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\[=;]");
+    private static Pattern paramUsagePattern = Pattern.compile("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\[=;]");
 
+    private static Vector<String> error;
+
+    private static Vector<String>  warning;
+
+    private static Vector<String>  message;
+
+    private static HashMap<String, Boolean> varDeclarationMap;
 
     public static void calcCnc(Line lineObj, String line) {
+
+        error = new Vector<>();
+        warning = new Vector<>();
+        message = new Vector<>();
+        varDeclarationMap= new HashMap<>();
 
         int cnc = 0;
         //int ctc = 0;
@@ -136,12 +150,46 @@ public class Cnc {
                 }
             }
 
+            Matcher paramDecMatcher = paramDecPattern.matcher(line);
+            if(paramDecMatcher.find())
+            {
+                List<String> resultList = Splitter.on(' ')
+                        .trimResults()
+                        .omitEmptyStrings()
+                        .splitToList(line);
+                int equalTo=0;
 
+                for (int i=0;i<resultList.size();i++)
+                      if(resultList.equals("=")) equalTo=i;
+
+                if (equalTo != 0)
+                    varDeclarationMap.put(resultList.get(equalTo+1), false);
+                else
+                    varDeclarationMap.put(resultList.get(resultList.size()-1).replaceAll("[^a-zA-Z0-9]", ""), false);
+            }
+            else{
+            Matcher paramUsageMatcher = paramUsagePattern.matcher(line);
+            if(paramUsageMatcher.find())
+            {
+                List<String> resultList = Splitter.on(' ')
+                        .trimResults()
+                        .omitEmptyStrings()
+                        .splitToList(line);
+                resultList.forEach(dec ->
+                {
+                    if(varDeclarationMap.getOrDefault(dec,false))
+                    varDeclarationMap.put(dec,true);
+                });
+
+            }}
             if (FileHandler.stack.peek() != 0 && (line.startsWith("}") || line.endsWith("}"))) {
                 String val = FileHandler.stack.pop();
             }
 
             cnc = cnc + FileHandler.stack.peek();
+            lineObj.setError(error);
+            lineObj.setWarning(setAndGetWarning());
+            lineObj.setMessage(message);
             lineObj.setCnc(cnc);
             //System.out.println(cnc);
 
@@ -149,5 +197,17 @@ public class Cnc {
             String errMsg = "Error calculating Cnc";
             LOGGER.error(errMsg);
         }
+    }
+
+    static Vector<String> setAndGetWarning()
+    {
+        Iterator allIt= varDeclarationMap.entrySet().iterator();
+        while(allIt.hasNext())
+        {
+            Map.Entry pair = (Map.Entry)allIt.next();
+            if (pair.getValue().equals(false))
+                warning.add("Variable declaration "+pair.getKey()+" is never used !!");
+        }
+        return warning;
     }
 }
